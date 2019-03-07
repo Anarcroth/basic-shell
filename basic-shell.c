@@ -1,48 +1,80 @@
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <errno.h>
 
-#define COMMAND_LENGHT 100
-#define PARAMETER_LENGHT 10
+#define COMMAND_LENGHT 1024
+#define PARAMETER_LENGHT 64
 
-void get_command(char* comm);
-void parse(char* comm, char** params);
-void execute(char* comm, char** params);
+char* get_line();
+char** parse(char* comm);
+int execute(char** params);
 
 int main(int argc, char* argv[])
 {
-    char comm[COMMAND_LENGHT + 1];
-    char* params[PARAMETER_LENGHT + 1];
+    char* line;
+    char** params;
     while (1)
     {
         printf("[%s@basic-shell] ~$ ", getenv("USER"));
-	get_command(comm);
-	parse(comm, params);
-	execute(comm, params);
-	printf("%s\n", comm);
+	line = get_line();
+	params = parse(line);
+	int status = execute(params);
+	if (status == 1)
+	{
+	    return 1;
+	}
     }
+    free(line);
+    free(params);
     return 0;
 }
 
-void get_command(char* comm)
+char* get_line()
 {
-    if (fgets(comm, sizeof(comm), stdin) == NULL) comm = NULL;
-    // Remove trailing neommand character
-    if (comm[strlen(comm) - 1] == '\n') {
-	comm[strlen(comm) - 1] = '\0';
-    }
+    char* line = (char*)malloc(sizeof(char) * COMMAND_LENGHT);
+
+    if (!line) exit(0);
+
+    if (fgets(line, sizeof(char) * COMMAND_LENGHT, stdin) == NULL) exit(0);
+
+    if (line[strlen(line) - 1] == '\n')
+	line[strlen(line) - 1] = '\0';
+
+    return line;
 }
 
-void parse(char* comm, char** params)
+char** parse(char* comm)
 {
-    for (int i = 0; i < PARAMETER_LENGHT; i++)
+    char** params = (char**)malloc(sizeof(char) * PARAMETER_LENGHT);
+    // ensures to pass through all of the params
+    for (int i = 0; i < COMMAND_LENGHT; i++)
     {
 	params[i] = strsep(&comm, " ");
 	if (params[i] == NULL) break;
     }
+    return params;
 }
 
-void execute(char* comm, char** params)
+int execute(char** params)
 {
-
+    pid_t pid = fork();
+    if (pid == -1)
+    {
+        printf("fork: %s\n", strerror(errno));
+	return 1;
+    }
+    else if (pid == 0)
+    {
+        execvp(params[0], params);
+        printf("shell: %s: %s\n", params[0], strerror(errno));
+	return 1;
+    }
+    else
+    {
+        int childStatus;
+        waitpid(pid, &childStatus, 0);
+	return 0;
+    }
 }
