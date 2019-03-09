@@ -36,7 +36,7 @@ char* get_line()
 
     if (!line)
     {
-	fprintf(stderr, "Failed to allocate space for line input");
+	fprintf(stderr, "failed to allocate space for line input: %s", strerror(errno));
 	exit(errno);
     }
 
@@ -61,7 +61,7 @@ char** parse(char* comm)
 
     if (!params)
     {
-	fprintf(stderr, "Failed to allocate space for parameters");
+	fprintf(stderr, "failed to allocate space for parameters: %s", strerror(errno));
 	exit(errno);
     }
 
@@ -96,15 +96,22 @@ int execute(char** params)
     }
 
     pid_t pid = fork();
-    if (pid == -1)
+    if (pid < 0)
     {
+	/* fork error */
         fprintf(stderr, "fork error: %s\n", strerror(errno));
 	return 1;
     }
-    else if (pid == 0)
+    else if (pid > 0)
     {
+	/* parent exists */
+	exit(0);
+    }
+    else
+    {
+	/* child created */
         execvp(params[0], params);
-        printf("basic-shell: %s: %s\n", params[0], strerror(errno));
+        fprintf(stderr, "basic-shell: %s: %s\n", params[0], strerror(errno));
 	return 1;
     }
 
