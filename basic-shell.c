@@ -35,12 +35,23 @@ char* get_line()
 {
     char* line = (char*)malloc(sizeof(char) * COMMAND_LENGHT);
 
-    if (!line) exit(0);
+    if (!line)
+    {
+	fprintf(stderr, "Failed to allocate space for line input");
+	exit(errno);
+    }
 
-    if (fgets(line, sizeof(char) * COMMAND_LENGHT, stdin) == NULL) exit(0);
+    /* Exits the shell either through terminating or Ctrl + D */
+    if (fgets(line, sizeof(char) * COMMAND_LENGHT, stdin) == NULL)
+    {
+	exit(0);
+    }
 
+    /* Removes newline char if there is one */
     if (line[strlen(line) - 1] == '\n')
+    {
 	line[strlen(line) - 1] = '\0';
+    }
 
     return line;
 }
