@@ -1,3 +1,5 @@
+#include <signal.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,16 +13,19 @@
 char* get_line();
 char** parse(char* comm);
 int execute(char** params);
+void push_to_bg(void);
 
 bool bg = false;
 
-int main(int argc, char* argv[])
+int main(void)
 {
+    printf("%s", "=== Welcome to basic-shell 0.1.0 ===\n\n");
+    chdir(getenv("HOME"));
     char* line;
     char** params;
     while (1)
     {
-        printf("[%s@%s] ~$ ", getenv("USER"), "basic-shell");
+        printf("[%s@%s] $ ", getenv("USER"), "basic-shell");
 	line = get_line();
 	params = parse(line);
 	int status = execute(params);
@@ -95,6 +100,12 @@ int execute(char** params)
 	return 0;
     }
 
+    if (getppid() == 1)
+    {
+	/* Already a daemon */
+	return 0;
+    }
+
     pid_t pid = fork();
     if (pid < 0)
     {
@@ -102,12 +113,7 @@ int execute(char** params)
         fprintf(stderr, "fork error: %s\n", strerror(errno));
 	return 1;
     }
-    else if (pid > 0)
-    {
-	/* parent exists */
-	exit(0);
-    }
-    else
+    else if (pid == 0)
     {
 	/* child created */
         execvp(params[0], params);
@@ -117,11 +123,24 @@ int execute(char** params)
 
     if (bg)
     {
-	bg = false;
-	setsid();
+	push_to_bg();
 	return 0;
     }
     int childStatus;
     waitpid(pid, &childStatus, 0);
     return 0;
+}
+
+void push_to_bg(void)
+{
+    bg = false;
+
+    setsid(); /* Obtain a new process group */
+
+    int i = open("/dev/null",O_RDWR); /* Handle standart I/O */
+    dup(i);
+    dup(i);
+
+    signal(SIGCHLD,SIG_IGN); /* Ignore child */
+    signal(SIGTSTP,SIG_IGN); /* Ignore tty signals */
 }
