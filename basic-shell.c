@@ -11,8 +11,6 @@
 char* get_line();
 char** parse(char* comm);
 int execute(char** params);
-int exec_seq(char** params);
-int exec_daemon(char** params);
 
 bool bg = false;
 
@@ -97,41 +95,10 @@ int execute(char** params)
 	return 0;
     }
 
-    if (bg)
-    {
-	return exec_daemon(params);
-    }
-    return exec_seq(params);
-}
-
-int exec_seq(char** params)
-{
     pid_t pid = fork();
     if (pid == -1)
     {
-        printf("fork: %s\n", strerror(errno));
-	return 1;
-    }
-    else if (pid == 0)
-    {
-        execvp(params[0], params);
-        printf("shell: %s: %s\n", params[0], strerror(errno));
-	return 1;
-    }
-    else
-    {
-        int childStatus;
-        waitpid(pid, &childStatus, 0);
-	return 0;
-    }
-}
-
-int exec_daemon(char** params)
-{
-    pid_t pid = fork();
-    if (pid == -1)
-    {
-        fprintf(stderr, "fork: %s\n", strerror(errno));
+        fprintf(stderr, "fork error: %s\n", strerror(errno));
 	return 1;
     }
     else if (pid == 0)
@@ -140,5 +107,14 @@ int exec_daemon(char** params)
         printf("basic-shell: %s: %s\n", params[0], strerror(errno));
 	return 1;
     }
-    setsid();
+
+    if (bg)
+    {
+	bg = false;
+	setsid();
+	return 0;
+    }
+    int childStatus;
+    waitpid(pid, &childStatus, 0);
+    return 0;
 }
