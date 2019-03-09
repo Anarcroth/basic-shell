@@ -136,8 +136,8 @@ void exec_std(char **params)
 		return;
 	}
 	else {
-		int childStatus;
-		waitpid(pid, &childStatus, 0);
+		int chid_status;
+		waitpid(pid, &chid_status, 0);
 		return;
 	}
 }
