@@ -59,6 +59,12 @@ char** parse(char* comm)
 {
     char** params = (char**)malloc(sizeof(char) * PARAMETER_LENGHT);
 
+    if (!params)
+    {
+	fprintf(stderr, "Failed to allocate space for parameters");
+	exit(errno);
+    }
+
     /* Ensures to pass through all of the params */
     for (int i = 0; i < COMMAND_LENGHT; i++)
     {
