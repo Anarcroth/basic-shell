@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #define COMMAND_LENGHT 1024
 #define PARAMETER_LENGHT 64
@@ -11,20 +12,18 @@ char* get_line();
 char** parse(char* comm);
 int execute(char** params);
 
+bool bg = false;
+
 int main(int argc, char* argv[])
 {
     char* line;
     char** params;
     while (1)
     {
-        printf("[%s@basic-shell] ~$ ", getenv("USER"));
+        printf("[%s@%s] ~$ ", getenv("USER"), "basic-shell");
 	line = get_line();
 	params = parse(line);
 	int status = execute(params);
-	if (status == 1)
-	{
-	    return 1;
-	}
     }
     free(line);
     free(params);
@@ -59,11 +58,25 @@ char* get_line()
 char** parse(char* comm)
 {
     char** params = (char**)malloc(sizeof(char) * PARAMETER_LENGHT);
-    // ensures to pass through all of the params
+
+    /* Ensures to pass through all of the params */
     for (int i = 0; i < COMMAND_LENGHT; i++)
     {
-	params[i] = strsep(&comm, " ");
-	if (params[i] == NULL) break;
+	char* temp_param = strsep(&comm, " ");
+
+	if (temp_param == NULL)
+	{
+	    break;
+	}
+	/* Checks if the process is to be run in the background */
+	if (*temp_param == '&')
+	{
+	    bg = true;
+	}
+	else
+	{
+	    params[i] = temp_param;
+	}
     }
     return params;
 }
