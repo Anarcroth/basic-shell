@@ -6,17 +6,19 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define COMMAND_LENGHT 1024
 #define PARAMETER_LENGHT 64
 #define BUILTIN_COMMS 2
 
-char *get_line();
+char *get_line(void);
 char **parse(char *comm);
-int execute(char **params);
+void execute(char **params);
 bool is_builtin(char *comm);
-int exec_builtin(char **params);
-int exec_std(char **params);
+void exec_builtin(char **params);
+void exec_std(char **params);
 void cd(char **params);
 void push_to_bg(void);
 
@@ -30,23 +32,25 @@ int main(void)
 	chdir(getenv("HOME"));
 	char *line;
 	char **params;
+
 	while (1) {
 		printf("[%s@%s] $ ", getenv("USER"), "basic-shell");
 		line = get_line();
 		params = parse(line);
-		int status = execute(params);
+		execute(params);
 	}
+
 	free(line);
 	free(params);
 	return 0;
 }
 
-char *get_line()
+char *get_line(void)
 {
 	char *line = (char*)malloc(sizeof(char) * COMMAND_LENGHT);
 
 	if (!line) {
-		fprintf(stderr, "failed to allocate space for line input: %s", strerror(errno));
+		fprintf(stderr, "failed input allocation: %s", strerror(errno));
 		exit(errno);
 	}
 
@@ -54,7 +58,6 @@ char *get_line()
 	if (fgets(line, sizeof(char) * COMMAND_LENGHT, stdin) == NULL)
 		exit(0);
 
-	/* Removes newline char if there is one */
 	if (line[strlen(line) - 1] == '\n')
 		line[strlen(line) - 1] = '\0';
 
@@ -66,95 +69,83 @@ char **parse(char *comm)
 	char **params = (char**)malloc(sizeof(char) * PARAMETER_LENGHT);
 
 	if (!params) {
-		fprintf(stderr, "failed to allocate space for parameters: %s", strerror(errno));
+		fprintf(stderr, "failed parameters allocation: %s", strerror(errno));
 		exit(errno);
 	}
 
-	/* Ensures to pass through all of the params */
 	for (int i = 0; i < COMMAND_LENGHT; i++) {
-		char *temp_param = strsep(&comm, " ");
+		char *tmp = strsep(&comm, " ");
 
-		if (temp_param == NULL)
+		if (tmp == NULL)
 			break;
 
-		/* Checks if the process is to be run in the background */
-		if (*temp_param == '&')
+		if (*tmp == '&')
 			bg = true;
 		else
-			params[i] = temp_param;
+			params[i] = tmp;
 	}
 	return params;
 }
 
-int execute(char **params)
+void execute(char **params)
 {
-	/* Do not execute if the passed command is an empty character */
-	if (*params[0] == '\0')
-		return 0;
+	if (*params[0] == '\0') /* Empty command */
+		return;
 
-	if (getppid() == 1) /* Already a daemon */
-		return 0;
+	if (getppid() == 1)     /* Already a daemon */
+		return;
 
 	if (is_builtin(params[0]))
-		return exec_builtin(params);
+		exec_builtin(params);
 	else
-		return exec_std(params);
+		exec_std(params);
 }
 
 bool is_builtin(char *comm)
 {
-	for (int i = 0; i < BUILTIN_COMMS; i++) {
+	for (int i = 0; i < BUILTIN_COMMS; i++)
 		if (strcmp(builtin_commands[i], comm) == 0)
 			return true;
-	}
+
 	return false;
 }
 
-int exec_builtin(char **params)
+void exec_builtin(char **params)
 {
-	if (strcmp(params[0], "cd") == 0) {
+	if (strcmp(params[0], "cd") == 0)
 		cd(params);
-	}
 	else if (strcmp(params[0], "exit") == 0)
-	{
-		printf("%s\n", "exiting...");
 		exit(0);
-	}
-	return 1;
 }
 
-int exec_std(char **params)
+void exec_std(char **params)
 {
 	pid_t pid = fork();
 	if (pid < 0) {
-		/* fork error */
 		fprintf(stderr, "fork error: %s\n", strerror(errno));
-		return 1;
+		return;
 	}
 	else if (pid == 0) {
-		/* child created */
 		execvp(params[0], params);
-		fprintf(stderr, "basic-shell: %s: %s\n", params[0], strerror(errno));
-		return 1;
+		fprintf(stderr, "%s: %s\n", params[0], strerror(errno));
+		return;
 	}
 
 	if (bg) {
 		push_to_bg();
-		return 0;
+		return;
 	}
-	int childStatus;
-	waitpid(pid, &childStatus, 0);
-	return 0;
+	else {
+		int childStatus;
+		waitpid(pid, &childStatus, 0);
+		return;
+	}
 }
 
 void cd(char **params)
 {
-	if (params[1] == NULL) {
-		fprintf(stderr, "basic-shell: %s: %s\n", params[0], strerror(errno));
-	}
-	if (chdir(params[1]) != 0) {
-		fprintf(stderr, "basic-shell: %s: %s\n", params[0], strerror(errno));
-	}
+	if (params[1] == NULL || chdir(params[1]) != 0)
+		fprintf(stderr, "%s: %s\n", params[0], strerror(errno));
 }
 
 void push_to_bg(void)
@@ -163,10 +154,10 @@ void push_to_bg(void)
 
 	setsid(); /* Obtain a new process group */
 
-	int i = open("/dev/null",O_RDWR); /* Handle standart I/O */
+	int i = open("/dev/null", O_RDWR); /* Handle standart I/O */
 	dup(i);
 	dup(i);
 
-	signal(SIGCHLD,SIG_IGN); /* Ignore child */
-	signal(SIGTSTP,SIG_IGN); /* Ignore tty signals */
+	signal(SIGCHLD, SIG_IGN); /* Ignore child */
+	signal(SIGTSTP, SIG_IGN); /* Ignore tty signals */
 }
