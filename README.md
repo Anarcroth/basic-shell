@@ -237,4 +237,5 @@ This `waitpid(pid, &chid_status, 0)` function makes sure that we wait for the ch
 | 2972       | 433   | 163   |
 
 *Size of executable*: 20K
+
 *Coding style*: Linux style
